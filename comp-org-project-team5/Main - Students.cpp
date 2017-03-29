@@ -389,7 +389,7 @@ void parseCommandLine(int argc, char *argv[])
 
 	if(gOp == 0)
 	{
-		fprintf(stderr, "Error! Encrypt or Decrypt must be specified.\n\n)");
+		fprintf(stderr, "Error! Encrypt or Decrypt must be specified.\n\n");
 		err_flag = true;
 	}
 

@@ -1,0 +1,100 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+
+void main(void){
+	unsigned char value = 0xA5;
+
+	printf("Original value = %02x\n", value);
+
+
+	__asm{//ENCRYPT CHAR
+		push eax;
+		push ebx;
+		push ecx;
+		xor eax, eax;
+		mov al, value;
+		ror al, 1; //rotate 1-bit right :A5 -> D2
+		mov ah, al;
+		and ah, 0x0f;
+		shl ah, 4;
+		and al, 0xf0;
+		shr al, 4;
+		or al, ah;	//swap nibbles: D2 -> 2D
+		xor ecx, ecx;
+		mov ecx, 7;
+		xor ah, ah;
+		xor ecx, ecx;
+		mov ecx, 7;
+		xor ah, ah;
+	E_REV:
+		mov bl, al;
+		and bl, 0x01;
+		or ah, bl;
+		cmp ecx, 0;
+		je E_EXIT;
+		dec ecx;
+		shr al, 1;
+		shl ah, 1;
+		jmp E_REV;
+	E_EXIT:
+		mov al, ah;	// reverse order: 2D -> B4
+		mov ah, al;
+		and ah, 0x33;
+		shl ah, 2;
+		and al, 0xcc;
+		shr al, 2;
+		or al, ah;// swap half nibbles: 0xB4 -> 0xE1
+		rol al, 1;// rotate 1 bit to left 0xE1 -> 0xC3
+		mov value, al;
+		pop ecx;
+		pop ebx;
+		pop eax;
+	}//end of cryptography
+
+	printf("Encrypted value = %02x\n", value);
+
+	__asm{//DECRYPT CHAR
+		push eax;
+		push ebx;
+		push ecx;
+		xor eax, eax;
+		mov al, value;
+		ror al, 1; //rotate 1-bit right :0xC3 -> 0xE1	
+		mov ah, al;
+		and ah, 0x33;
+		shl ah, 2;
+		and al, 0xcc;
+		shr al, 2;
+		or al, ah;// swap half nibbles: 0xE1 -> 0xB4
+		xor ecx, ecx;
+		mov ecx, 7;
+		xor ah, ah;
+	REVERSE:
+		mov bl, al;
+		and bl, 0x01;
+		or ah, bl;
+		cmp ecx, 0;
+		je REV_EXIT;
+		dec ecx;
+		shr al, 1;
+		shl ah, 1;
+		jmp REVERSE;
+	REV_EXIT:
+		mov al, ah;	// reverse order: 0xB4 -> 0x2D
+		mov ah, al;
+		and ah, 0x0f;
+		shl ah, 4;
+		and al, 0xf0;
+		shr al, 4;
+		or al, ah;	//swap nibbles: 0x2D -> 0xD2		
+		rol al, 1;// rotate 1 bit to left 0xD2 -> 0xA5
+		mov value, al;		
+		pop ecx;
+		pop ebx;
+		pop eax;
+	}//end of cryptography
+
+	printf("Decrypted value = %02x\n", value);
+
+}//end of main

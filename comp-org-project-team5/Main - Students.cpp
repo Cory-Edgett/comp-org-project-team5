@@ -112,7 +112,7 @@ EXIT_C_EXAMPLE:					//
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // code to encrypt the data as specified by the project assignment
-void encryptData(char *data, int length)
+void encryptData(char *data, int _length)
 {
 	// you can not declare any local variables in C, set up the stack frame and 
 	// assign them in assembly
@@ -121,11 +121,121 @@ void encryptData(char *data, int length)
 		// you will need to reference these global variables
 		// gptrPasswordHash, gptrKey
 
-		// simple example that replaces first byte of data with third byte in teh key filewhich is 0x7A == 'z'
-		mov esi,gptrKey;
-		mov al,[esi+3];		// access 3rd byte in keyfile
-		mov edi,data
-		mov [edi],al
+
+		/* POINT INSERTION FOR ENCRYPTION
+		 *
+		 * #ROUNDS = gRoundNums 
+		 *
+		 */
+		push ebp
+		mov  ebp, esp
+		sub  esp, 0x1B
+
+		// set #rounds, gNumRounds as [ebp-0x18]
+		mov  eax, gNumRounds
+		mov  [ebp-0x1B], eax
+
+		mov  [ebp-0x18], 0  // Starting_Point1
+		mov  [ebp-0x14], 0  // Starting_Point2
+		mov  [ebp-0x10], 0  // hop_count1
+		mov  [ebp-0x0C], 0  // index1
+		mov  [ebp-0x08], 0  // index2
+		mov  [ebp-0x04], 0  // x, honestly maybe we dont need this one, and we could just retain this to ecx
+
+		/*----------------
+		 * FOR LOOP START
+		 */
+		mov  ecx, 0
+
+ROUND_ENCRYPT:
+
+		push ecx
+
+		/*
+		 * not really sure what [ebp-0x18], Starting_point1[round], is suppose to be point to,
+		 * or what value it should hold.
+		 *
+	     */
+		mov  bl, gPasswordHash[0+ecx*4]
+		mov  eax, 256
+		mul  ebx
+		add  al, gPassword[1+ecx*4]
+		mov  ebx, [ebp-0x18]
+		mov  [ebx+ecx], eax
+		mov  [ebp-0x18], ebx	// finish setting Starting_point1[round]
+
+		/*
+		 * not really sure what [ebp-0x18], Starting_point1[round], is suppose to be point to,
+		 * or what value it should hold.
+		 *
+	     */
+		mov  bl, gPasswordHash[4+ecx*4]
+		mov  eax, 256
+		mul  ebx
+		add  al, gPassword[5+ecx*4]
+		mov  ebx, [ebp-0x14]
+		mov  [ebx+ecx], eax
+		mov  [ebp-0x14], ebx	// finish setting Starting_point2[round]
+
+		
+		/*
+		 * not really sure what [ebp-0x10], hop_count1[round], is suppose to be point to,
+		 * or what value it should hold.
+		 *
+	     */
+		mov  bl, gPasswordHash[2+ecx*4]
+		mov  eax, 256
+		mul  ebx
+		add  al, gPassword[3+ecx*4]
+		mov  ebx, [ebp-0x10]
+		mov  [ebx+ecx], eax
+		mov  [ebp-0x10], ebx	// finish setting hop_count1[round]
+
+
+		mov  eax, [ebp-0x18]
+		mov  eax, [eax+ecx]
+		mov  [ebp-0xC], eax		// finish setting index1
+
+		mov  eax, [ebp-0x08]
+		mov  eax, [eax+ecx]
+		mov  [ebp-0x8], eax		// finish setting index2
+
+		mov  ecx, 0
+
+		cmp  [ebp-0x10], 0
+		jz   SET_FFFF
+		jmp  NEXT_FOR_LOOP
+SET_FFFF:
+		mov  [ebp-0x10], 0xFFFF
+
+NEXT_FOR_LOOP:
+		push ecx
+
+
+		pop  ecx
+		inc  ecx
+		mov  eax, _length
+		cmp  ecx, eax
+		jb   NEXT_FOR_LOOP
+
+
+		/*--------------
+		 * FOR LOOP END
+		 */
+		pop  ecx
+		inc  ecx
+		cmp  ecx, [ebp-0x1B]
+		jb   ROUND_ENCRYPT	
+
+		mov  esp, ebp
+		pop  ebp
+
+
+		// simple example that replaces first byte of data with third byte in the key filewhich is 0x7A == 'z'
+		// mov esi,gptrKey;
+		// mov al,[esi+3];		// access 3rd byte in keyfile
+		// mov edi,data
+		// mov [edi],al
 	}
 
 EXIT_C_ENCRYPT_DATA:
@@ -171,6 +281,11 @@ void decryptData(char *data, int length)
 
 		// you will need to reference these global variables
 		// gptrPasswordHash, gptrKey
+		push ebp
+		mov  ebp, esp
+
+		leave
+		ret
 	}
 
 EXIT_C_DECRYPT_DATA:

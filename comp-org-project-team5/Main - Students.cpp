@@ -121,112 +121,204 @@ void encryptData(char *data, int _length)
 		// you will need to reference these global variables
 		// gptrPasswordHash, gptrKey
 
+		// Preserve data and _length
+		mov  eax, data
+		mov  ebx, _length
 
 		/* POINT INSERTION FOR ENCRYPTION
 		 *
-		 * #ROUNDS = gRoundNums 
+		 * data            = [ebp-0x24]
+		 * _length         = [ebp-0x20]
+		 * #ROUNDS         = [ebp-0x1C]
+		 * Starting_point1 = [ebp-0x18]
+		 * Starting_point2 = [ebp-0x14]
+		 * hop_count1      = [ebp-0x10]
+		 * hop_count2      = [ebp-0x0C]
+		 * index1          = [ebp-0x08]
+		 * index2          = [ebp-0x04]
 		 *
 		 */
 		push ebp
 		mov  ebp, esp
-		sub  esp, 0x1B
+		sub  esp, 0x24
+
+		// data
+		mov  [ebp-0x24], eax
+
+		// _length
+		mov  [ebp-0x20], ebx
 
 		// set #rounds, gNumRounds as [ebp-0x18]
 		mov  eax, gNumRounds
-		mov  [ebp-0x1B], eax
+		mov  [ebp-0x1C], eax // number of rounds
 
-		mov  [ebp-0x18], 0  // Starting_Point1
+		mov  [ebp-0x18], 0	// Starting_Point1
 		mov  [ebp-0x14], 0  // Starting_Point2
 		mov  [ebp-0x10], 0  // hop_count1
-		mov  [ebp-0x0C], 0  // index1
-		mov  [ebp-0x08], 0  // index2
-		mov  [ebp-0x04], 0  // x, honestly maybe we dont need this one, and we could just retain this to ecx
+		mov  [ebp-0x0C], 0  // hop_count2
 
-		/*----------------
-		 * FOR LOOP START
-		 */
+
+/*----------------------------------
+ * FOR LOOP START - GRAB NEW KEY
+ */
 		mov  ecx, 0
 
 ROUND_ENCRYPT:
 
 		push ecx
 
-		/*
-		 * not really sure what [ebp-0x18], Starting_point1[round], is suppose to be point to,
-		 * or what value it should hold.
-		 *
-	     */
-		mov  bl, gPasswordHash[0+ecx*4]
+		// Starting_point1[round] = gPasswordHash[0+round*4] * 256 + gPasswordHash[1+round*4]
+		mov  ebx, gptrPasswordHash[0+ecx*4]
 		mov  eax, 256
 		mul  ebx
-		add  al, gPassword[1+ecx*4]
+		add  eax, gptrPasswordHash[1+ecx*4]
 		mov  ebx, [ebp-0x18]
-		mov  [ebx+ecx], eax
-		mov  [ebp-0x18], ebx	// finish setting Starting_point1[round]
+		//mov  [ebx+ecx], eax
+		mov  ebx, eax
+		mov  [ebp-0x18], ebx
 
-		/*
-		 * not really sure what [ebp-0x18], Starting_point1[round], is suppose to be point to,
-		 * or what value it should hold.
-		 *
-	     */
-		mov  bl, gPasswordHash[4+ecx*4]
+		// Starting_point2[round] = gPasswordHash[16+round*4] * 256 + gPasswordHash[17+round*4]
+		mov  ebx, gptrPasswordHash[16+ecx*4] // TODO: access violation
 		mov  eax, 256
 		mul  ebx
-		add  al, gPassword[5+ecx*4]
+		add  eax, gptrPasswordHash[17+ecx*4]
 		mov  ebx, [ebp-0x14]
-		mov  [ebx+ecx], eax
-		mov  [ebp-0x14], ebx	// finish setting Starting_point2[round]
-
+		//mov  [ebx+ecx], eax
+		mov  ebx, eax
+		mov  [ebp-0x14], ebx
 		
-		/*
-		 * not really sure what [ebp-0x10], hop_count1[round], is suppose to be point to,
-		 * or what value it should hold.
-		 *
-	     */
-		mov  bl, gPasswordHash[2+ecx*4]
+		// hop_count1[round] = gPasswordHash[2+round*4] * 256 + gPasswordHash[3+round*4]
+		mov  ebx, gptrPasswordHash[2+ecx*4]
 		mov  eax, 256
 		mul  ebx
-		add  al, gPassword[3+ecx*4]
+		add  eax, gptrPasswordHash[3+ecx*4]
 		mov  ebx, [ebp-0x10]
-		mov  [ebx+ecx], eax
-		mov  [ebp-0x10], ebx	// finish setting hop_count1[round]
+		//mov  [ebx+ecx], eax
+		mov  ebx, eax
+		mov  [ebp-0x10], ebx
 
+		// hop_count2[round] = gPasswordHash[18+round*4] * 256 + gPasswordHash[19+round*4]
+		mov  ebx, gptrPasswordHash[18+ecx*4]
+		mov  eax, 256
+		mul  ebx
+		add  eax, gptrPasswordHash[19+ecx*4]
+		mov  ebx, [ebp-0x0C]
+		//mov  [ebx+ecx], eax
+		mov  ebx, eax
+		mov  [ebp-0x0C], ebx
 
+		// index1 = starting_point1[round]
 		mov  eax, [ebp-0x18]
-		mov  eax, [eax+ecx]
-		mov  [ebp-0xC], eax		// finish setting index1
+		mov  eax, eax
+		mov  [ebp-0x8], eax
+		mov  [ebp-0x4], 0
+		jnz   NOT_INDEX1_FAILURE
 
-		mov  eax, [ebp-0x08]
-		mov  eax, [eax+ecx]
-		mov  [ebp-0x8], eax		// finish setting index2
+INDEX1_FAILURE:
+		mov  [ebp-0x4], 0xFFFF
 
+NOT_INDEX1_FAILURE:
+
+		// index2 = starting_point2[round]
+		mov  eax, [ebp-0x14]
+		mov  ebx, eax
+		mov  [ebp-0x4], eax
+		mov  [ebp-0x4], 0
+		jnz   NOT_INDEX2_FAILURE
+
+INDEX2_FAILURE:
+		mov  [ebp-0x4], 0xFFFF
+
+NOT_INDEX2_FAILURE:
+
+/*---------------------------------------------
+ * FOR LOOP START - ENCRYPT EACH PORTION
+ */
+		// x = 0
 		mov  ecx, 0
-
-		cmp  [ebp-0x10], 0
-		jz   SET_FFFF
-		jmp  NEXT_FOR_LOOP
-SET_FFFF:
-		mov  [ebp-0x10], 0xFFFF
 
 NEXT_FOR_LOOP:
 		push ecx
 
+		// file[x] = file[x] ^ gKey[index1]
+		mov  esi, gptrKey
+		mov  edi, [ebp-0x24]
+		mov  eax, [edi+ecx]
+		mov  ebx, [esi+ecx]
+		xor  eax, ebx
+		mov  [edi], eax
+
+		// index1 += hop_count1
+		mov  eax, [ebp-0x08]
+		add  eax, [ebp-0x10]
+		mov  [ebp-0x08], eax
+
+		// if(index >= 65537)
+		cmp  [ebp-0x08], 0x10001
+		jl   ENCRYPT_BIT
+
+		// index1 -= 65537
+ADJUST_INDEX1:
+		mov  eax, [ebp-0x08]
+		sub  eax, 0x10001
+		mov  [ebp-0x08], eax
+
+ENCRYPT_BIT:
+		// do the encryption here
+		xor eax, eax
+		mov al, [esi+ecx]
+		ror al, 1 //rotate 1-bit right
+		mov ah, al
+		and ah, 0x0f
+		shl ah, 4
+		and al, 0xf0
+		shr al, 4
+		or al, ah	//swap nibbles
+		xor ecx, ecx
+		mov ecx, 7
+		xor ah, ah
+		xor ecx, ecx
+		mov ecx, 7
+		xor ah, ah
+E_REV:
+		mov bl, al
+		and bl, 0x01
+		or ah, bl
+		cmp ecx, 0
+		je E_EXIT
+		dec ecx
+		shr al, 1
+		shl ah, 1
+		jmp E_REV
+E_EXIT:
+		mov al, ah
+		mov ah, al
+		and ah, 0x33
+		shl ah, 2
+		and al, 0xcc
+		shr al, 2
+		or al, ah // swap half nibbles
+		rol al, 1 // rotate 1 bit to left
 
 		pop  ecx
+
+		mov [esi+ecx], al
+
 		inc  ecx
-		mov  eax, _length
+		mov  eax, [ebp-0x20]
 		cmp  ecx, eax
 		jb   NEXT_FOR_LOOP
-
-
-		/*--------------
-		 * FOR LOOP END
-		 */
+/*
+ * FOR LOOP END - ENCRYPT EACH PORTION
+ -------------------------------------------*/
 		pop  ecx
 		inc  ecx
 		cmp  ecx, [ebp-0x1B]
 		jb   ROUND_ENCRYPT	
 
+/*
+ * FOR LOOP END - GRAB NEW KEY
+ -------------------------------------------*/
 		mov  esp, ebp
 		pop  ebp
 
@@ -273,7 +365,7 @@ int encryptFile(FILE *fptrIn, FILE *fptrOut)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // code to decrypt the data as specified by the project assignment
-void decryptData(char *data, int length)
+void decryptData(char *data, int _length)
 {
 	// you can not declare any local variables in C, set up the stack frame and 
 	// assign them in assembly
@@ -281,11 +373,215 @@ void decryptData(char *data, int length)
 
 		// you will need to reference these global variables
 		// gptrPasswordHash, gptrKey
+
+		// Preserve data and _length
+		mov  eax, data
+		mov  ebx, _length
+
+		/* POINT INSERTION FOR ENCRYPTION
+		 *
+		 * data            = [ebp-0x24]
+		 * _length         = [ebp-0x20]
+		 * #ROUNDS         = [ebp-0x1C]
+		 * Starting_point1 = [ebp-0x18]
+		 * Starting_point2 = [ebp-0x14]
+		 * hop_count1      = [ebp-0x10]
+		 * hop_count2      = [ebp-0x0C]
+		 * index1          = [ebp-0x08]
+		 * index2          = [ebp-0x04]
+		 *
+		 */
 		push ebp
 		mov  ebp, esp
+		sub  esp, 0x24
 
-		leave
-		ret
+		// data
+		mov  [ebp-0x24], eax
+
+		// _length
+		mov  [ebp-0x20], ebx
+
+		// set #rounds, gNumRounds as [ebp-0x18]
+		mov  eax, gNumRounds
+		mov  [ebp-0x1C], eax // number of rounds
+
+		mov  [ebp-0x18], 0	// Starting_Point1
+		mov  [ebp-0x14], 0  // Starting_Point2
+		mov  [ebp-0x10], 0  // hop_count1
+		mov  [ebp-0x0C], 0  // hop_count2
+
+
+/*----------------------------------
+ * FOR LOOP START - GRAB NEW KEY
+ */
+		mov  ecx, 0
+
+ROUND_ENCRYPT:
+
+		push ecx
+
+		// Starting_point1[round] = gPasswordHash[0+round*4] * 256 + gPasswordHash[1+round*4]
+		mov  ebx, gptrPasswordHash[0+ecx*4]
+		mov  eax, 256
+		mul  ebx
+		add  eax, gptrPasswordHash[1+ecx*4]
+		mov  ebx, [ebp-0x18]
+		//mov  [ebx+ecx], eax
+		mov  ebx, eax
+		mov  [ebp-0x18], ebx
+
+		// Starting_point2[round] = gPasswordHash[16+round*4] * 256 + gPasswordHash[17+round*4]
+		mov  ebx, gptrPasswordHash[16+ecx*4] // TODO: access violation
+		mov  eax, 256
+		mul  ebx
+		add  eax, gptrPasswordHash[17+ecx*4]
+		mov  ebx, [ebp-0x14]
+		//mov  [ebx+ecx], eax
+		mov  ebx, eax
+		mov  [ebp-0x14], ebx
+		
+		// hop_count1[round] = gPasswordHash[2+round*4] * 256 + gPasswordHash[3+round*4]
+		mov  ebx, gptrPasswordHash[2+ecx*4]
+		mov  eax, 256
+		mul  ebx
+		add  eax, gptrPasswordHash[3+ecx*4]
+		mov  ebx, [ebp-0x10]
+		//mov  [ebx+ecx], eax
+		mov  ebx, eax
+		mov  [ebp-0x10], ebx
+
+		// hop_count2[round] = gPasswordHash[18+round*4] * 256 + gPasswordHash[19+round*4]
+		mov  ebx, gptrPasswordHash[18+ecx*4]
+		mov  eax, 256
+		mul  ebx
+		add  eax, gptrPasswordHash[19+ecx*4]
+		mov  ebx, [ebp-0x0C]
+		//mov  [ebx+ecx], eax
+		mov  ebx, eax
+		mov  [ebp-0x0C], ebx
+
+		// index1 = starting_point1[round]
+		mov  eax, [ebp-0x18]
+		mov  eax, eax
+		mov  [ebp-0x8], eax
+		mov  [ebp-0x4], 0
+		jnz   NOT_INDEX1_FAILURE
+
+INDEX1_FAILURE:
+		mov  [ebp-0x4], 0xFFFF
+
+NOT_INDEX1_FAILURE:
+
+		// index2 = starting_point2[round]
+		mov  eax, [ebp-0x14]
+		mov  ebx, eax
+		mov  [ebp-0x4], eax
+		mov  [ebp-0x4], 0
+		jnz   NOT_INDEX2_FAILURE
+
+INDEX2_FAILURE:
+		mov  [ebp-0x4], 0xFFFF
+
+NOT_INDEX2_FAILURE:
+
+/*---------------------------------------------
+ * FOR LOOP START - ENCRYPT EACH PORTION
+ */
+		// x = 0
+		mov  ecx, 0
+
+NEXT_FOR_LOOP:
+		push ecx
+
+		// file[x] = file[x] ^ gKey[index1]
+		mov  esi, gptrKey
+		mov  edi, [ebp-0x24]
+		mov  eax, [edi+ecx]
+		mov  ebx, [esi+ecx]
+		xor  eax, ebx
+		mov  [edi], eax
+
+		// index1 += hop_count1
+		mov  eax, [ebp-0x08]
+		add  eax, [ebp-0x10]
+		mov  [ebp-0x08], eax
+
+		// if(index >= 65537)
+		cmp  [ebp-0x08], 0x10001
+		jl   ENCRYPT_BIT
+
+		// index1 -= 65537
+ADJUST_INDEX1:
+		mov  eax, [ebp-0x08]
+		sub  eax, 0x10001
+		mov  [ebp-0x08], eax
+
+ENCRYPT_BIT:
+		// do the encryption here
+		xor eax, eax
+		mov al, [esi+ecx]
+
+		ror al, 1; //rotate 1-bit right :0xC3 -> 0xE1	
+		mov ah, al;
+		and ah, 0x33;
+		shl ah, 2;
+		and al, 0xcc;
+		shr al, 2;
+		or al, ah;// swap half nibbles: 0xE1 -> 0xB4
+		xor ecx, ecx;
+		mov ecx, 7;
+		xor ah, ah;
+
+REVERSE:
+		mov bl, al;
+		and bl, 0x01;
+		or ah, bl;
+		cmp ecx, 0;
+		je REV_EXIT;
+		dec ecx;
+		shr al, 1;
+		shl ah, 1;
+		jmp REVERSE;
+
+REV_EXIT:
+		mov al, ah;	// reverse order: 0xB4 -> 0x2D
+		mov ah, al;
+		and ah, 0x0f;
+		shl ah, 4;
+		and al, 0xf0;
+		shr al, 4;
+		or al, ah;	//swap nibbles: 0x2D -> 0xD2		
+		rol al, 1;// rotate 1 bit to left 0xD2 -> 0xA5
+
+		pop  ecx
+
+		mov [esi+ecx], al
+
+		inc  ecx
+		mov  eax, [ebp-0x20]
+		cmp  ecx, eax
+		jb   NEXT_FOR_LOOP
+/*
+ * FOR LOOP END - ENCRYPT EACH PORTION
+ -------------------------------------------*/
+		pop  ecx
+		inc  ecx
+		cmp  ecx, [ebp-0x1B]
+		jb   ROUND_ENCRYPT	
+
+/*
+ * FOR LOOP END - GRAB NEW KEY
+ -------------------------------------------*/
+		mov  esp, ebp
+		pop  ebp
+
+
+		// simple example that replaces first byte of data with third byte in the key filewhich is 0x7A == 'z'
+		// mov esi,gptrKey;
+		// mov al,[esi+3];		// access 3rd byte in keyfile
+		// mov edi,data
+		// mov [edi],al
+
 	}
 
 EXIT_C_DECRYPT_DATA:

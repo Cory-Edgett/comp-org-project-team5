@@ -178,7 +178,7 @@ ROUND_ENCRYPT:
 		mov  [ebp-0x18], ebx
 
 		// Starting_point2[round] = gPasswordHash[16+round*4] * 256 + gPasswordHash[17+round*4]
-		mov  ebx, gptrPasswordHash[16+ecx*4] // TODO: access violation
+		mov  ebx, gptrPasswordHash[16+ecx*4]
 		mov  eax, 256
 		mul  ebx
 		add  eax, gptrPasswordHash[17+ecx*4]
@@ -266,7 +266,7 @@ ADJUST_INDEX1:
 ENCRYPT_BIT:
 		// do the encryption here
 		xor eax, eax
-		mov al, [esi+ecx]
+		mov al, [edi+ecx]
 		ror al, 1 //rotate 1-bit right
 		mov ah, al
 		and ah, 0x0f
@@ -302,7 +302,7 @@ E_EXIT:
 
 		pop  ecx
 
-		mov [esi+ecx], al
+		mov [edi+ecx], al
 
 		inc  ecx
 		mov  eax, [ebp-0x20]
@@ -313,8 +313,9 @@ E_EXIT:
  -------------------------------------------*/
 		pop  ecx
 		inc  ecx
-		cmp  ecx, [ebp-0x1B]
-		jb   ROUND_ENCRYPT	
+		//cmp  ecx, [ebp-0x1B]
+		cmp  ecx, gNumRounds
+		jl   ROUND_ENCRYPT	
 
 /*
  * FOR LOOP END - GRAB NEW KEY
@@ -431,7 +432,7 @@ ROUND_ENCRYPT:
 		mov  [ebp-0x18], ebx
 
 		// Starting_point2[round] = gPasswordHash[16+round*4] * 256 + gPasswordHash[17+round*4]
-		mov  ebx, gptrPasswordHash[16+ecx*4] // TODO: access violation
+		mov  ebx, gptrPasswordHash[16+ecx*4]
 		mov  eax, 256
 		mul  ebx
 		add  eax, gptrPasswordHash[17+ecx*4]
@@ -468,6 +469,7 @@ ROUND_ENCRYPT:
 		jnz   NOT_INDEX1_FAILURE
 
 INDEX1_FAILURE:
+		// hop_count1 = 0xFFFF
 		mov  [ebp-0x4], 0xFFFF
 
 NOT_INDEX1_FAILURE:
@@ -480,6 +482,7 @@ NOT_INDEX1_FAILURE:
 		jnz   NOT_INDEX2_FAILURE
 
 INDEX2_FAILURE:
+		// hop_count2 = 0xFFFF
 		mov  [ebp-0x4], 0xFFFF
 
 NOT_INDEX2_FAILURE:
@@ -519,7 +522,7 @@ ADJUST_INDEX1:
 ENCRYPT_BIT:
 		// do the encryption here
 		xor eax, eax
-		mov al, [esi+ecx]
+		mov al, [edi+ecx]
 
 		ror al, 1; //rotate 1-bit right :0xC3 -> 0xE1	
 		mov ah, al;
@@ -555,7 +558,7 @@ REV_EXIT:
 
 		pop  ecx
 
-		mov [esi+ecx], al
+		mov [edi+ecx], al
 
 		inc  ecx
 		mov  eax, [ebp-0x20]
@@ -566,12 +569,15 @@ REV_EXIT:
  -------------------------------------------*/
 		pop  ecx
 		inc  ecx
-		cmp  ecx, [ebp-0x1B]
-		jb   ROUND_ENCRYPT	
+		cmp  ecx, gNumRounds
+		jl   ROUND_ENCRYPT	
 
 /*
  * FOR LOOP END - GRAB NEW KEY
  -------------------------------------------*/
+
+
+		// Kill stackframe for asm
 		mov  esp, ebp
 		pop  ebp
 

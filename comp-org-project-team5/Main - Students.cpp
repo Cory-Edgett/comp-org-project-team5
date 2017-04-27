@@ -238,15 +238,15 @@ NOT_INDEX2_FAILURE:
 		mov  ecx, 0
 
 NEXT_FOR_LOOP:
-		push ecx
+        push ecx
 
-		// file[x] = file[x] ^ gKey[index1]
-		mov  esi, gptrKey
-		mov  edi, [ebp-0x24]
-		mov  eax, [edi+ecx]
-		mov  ebx, [esi+ecx]
-		xor  eax, ebx
-		mov  [edi], eax
+        // file[x] = file[x] ^ gKey[index1]
+        mov  esi, gptrKey
+        mov  edi, [ebp - 0x24]
+        mov  al, byte ptr [edi + ecx]
+        mov  bl, byte ptr[esi + ebx - 0x08]
+        xor  al, bl
+        mov [edi + ecx], al
 
 		// index1 += hop_count1
 		mov  eax, [ebp-0x08]
@@ -266,7 +266,7 @@ ADJUST_INDEX1:
 ENCRYPT_BIT:
 		// do the encryption here
 		xor eax, eax
-		mov al, [edi+ecx]
+		mov al, byte ptr [edi+ecx]
 		ror al, 1 //rotate 1-bit right
 		mov ah, al
 		and ah, 0x0f
@@ -274,9 +274,6 @@ ENCRYPT_BIT:
 		and al, 0xf0
 		shr al, 4
 		or al, ah	//swap nibbles
-		xor ecx, ecx
-		mov ecx, 7
-		xor ah, ah
 		xor ecx, ecx
 		mov ecx, 7
 		xor ah, ah
@@ -302,7 +299,7 @@ E_EXIT:
 
 		pop  ecx
 
-		mov [edi+ecx], al
+		mov byte ptr [edi+ecx], al
 
 		inc  ecx
 		mov  eax, [ebp-0x20]
@@ -322,13 +319,6 @@ E_EXIT:
  -------------------------------------------*/
 		mov  esp, ebp
 		pop  ebp
-
-
-		// simple example that replaces first byte of data with third byte in the key filewhich is 0x7A == 'z'
-		// mov esi,gptrKey;
-		// mov al,[esi+3];		// access 3rd byte in keyfile
-		// mov edi,data
-		// mov [edi],al
 	}
 
 EXIT_C_ENCRYPT_DATA:
@@ -499,10 +489,10 @@ NEXT_FOR_LOOP:
 		// file[x] = file[x] ^ gKey[index1]
 		mov  esi, gptrKey
 		mov  edi, [ebp-0x24]
-		mov  eax, [edi+ecx]
-		mov  ebx, [esi+ecx]
-		xor  eax, ebx
-		mov  [edi], eax
+		mov  al, byte ptr [edi+ecx]
+		mov  bl, byte ptr [esi+ebx-0x08]
+		xor  al, bl
+		mov  [edi+ecx], al
 
 		// index1 += hop_count1
 		mov  eax, [ebp-0x08]
@@ -518,11 +508,11 @@ ADJUST_INDEX1:
 		mov  eax, [ebp-0x08]
 		sub  eax, 0x10001
 		mov  [ebp-0x08], eax
-
+//*
 ENCRYPT_BIT:
 		// do the encryption here
 		xor eax, eax
-		mov al, [edi+ecx]
+		mov al, byte ptr [edi+ecx]
 
 		ror al, 1; //rotate 1-bit right :0xC3 -> 0xE1	
 		mov ah, al;
@@ -534,7 +524,7 @@ ENCRYPT_BIT:
 		xor ecx, ecx;
 		mov ecx, 7;
 		xor ah, ah;
-
+  //*/
 REVERSE:
 		mov bl, al;
 		and bl, 0x01;
@@ -581,12 +571,6 @@ REV_EXIT:
 		mov  esp, ebp
 		pop  ebp
 
-
-		// simple example that replaces first byte of data with third byte in the key filewhich is 0x7A == 'z'
-		// mov esi,gptrKey;
-		// mov al,[esi+3];		// access 3rd byte in keyfile
-		// mov edi,data
-		// mov [edi],al
 
 	}
 
@@ -850,14 +834,7 @@ void parseCommandLine(int argc, char *argv[])
 
 void main(int argc, char *argv[])
 {
-#ifdef TEST_CODE
-	char testData[] = "The big lazy brown FOX jumped 123 the 987 dog. Then he 8 a CHICKEN.";
-	int numCAPS, numLow, numNonLetters;
-	numCAPS = numLow = numNonLetters = 0;
-	exCountLetters(testData, strlen(testData), &numCAPS, &numLow, &numNonLetters);
-	printf("numCAPS=%d, numLow=%d, numNonLetters=%d\n", numCAPS, numLow, numNonLetters );
-	exit(0);
-#endif
+
 
 	int length, resulti;
 

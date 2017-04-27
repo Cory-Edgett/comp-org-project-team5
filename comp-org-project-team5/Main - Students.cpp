@@ -512,7 +512,7 @@ ADJUST_INDEX1:
 ENCRYPT_BIT:
 		// do the encryption here
 		xor eax, eax
-		mov al, byte ptr [edi+ecx]
+		mov al, byte ptr [edi+ecx] //byte to encrypt is in al
 
 		ror al, 1; //rotate 1-bit right :0xC3 -> 0xE1	
 		mov ah, al;
@@ -548,7 +548,7 @@ REV_EXIT:
 
 		pop  ecx
 
-		mov [edi+ecx], al
+		mov [edi+ecx], al //save decrypt bit
 
 		inc  ecx
 		mov  eax, [ebp-0x20]

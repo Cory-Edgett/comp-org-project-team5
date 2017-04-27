@@ -138,8 +138,6 @@ void encryptData(char *data, int _length)
 		 * index2          = [ebp-0x04]
 		 *
 		 */
-		push ebp
-		mov  ebp, esp
 		sub  esp, 0x24
 
 		// data
@@ -241,11 +239,11 @@ NEXT_FOR_LOOP:
         push ecx
 
         // file[x] = file[x] ^ gKey[index1]
-        mov  esi, gptrKey
-        mov  edi, [ebp - 0x24]
-        mov  al, byte ptr [edi + ecx]
-        mov  bl, byte ptr[esi + ebx - 0x08]
-        xor  al, bl
+        mov esi, gptrKey
+        mov edi, [ebp - 0x24]
+        mov al, byte ptr [edi + ecx]
+        mov bl, byte ptr [ebp - 0x08]
+        xor eax, ebx
         mov [edi + ecx], al
 
 		// index1 += hop_count1
@@ -253,7 +251,7 @@ NEXT_FOR_LOOP:
 		add  eax, [ebp-0x10]
 		mov  [ebp-0x08], eax
 
-		// if(index >= 65537)
+		// if(index1 >= 65537)
 		cmp  [ebp-0x08], 0x10001
 		jl   ENCRYPT_BIT
 
@@ -299,8 +297,31 @@ E_EXIT:
 
 		pop  ecx
 
-		mov byte ptr [edi+ecx], al
+		mov [edi+ecx], al
 
+        // file[x] = file[x] ^ gKey[index2]
+        mov esi, gptrKey
+        mov edi, [ebp - 0x24]
+        mov al, byte ptr[edi + ecx]
+        mov bl, byte ptr[ebp - 0x04]
+        xor eax, ebx
+        mov [edi + ecx], al
+
+        // index2 += hop_count2
+        mov  eax, [ebp - 0x04]
+        add  eax, [ebp - 0x0C]
+        mov  [ebp - 0x04], eax
+
+        // if(index2 >= 65537)
+        cmp  [ebp - 0x04], 0x10001
+        jl   SKIP
+
+        // index2 -= 65537
+    ADJUST_INDEX2:
+        mov  eax, [ebp - 0x04]
+        sub  eax, 0x10001
+        mov[ebp - 0x04], eax
+    SKIP:
 		inc  ecx
 		mov  eax, [ebp-0x20]
 		cmp  ecx, eax
@@ -317,8 +338,7 @@ E_EXIT:
 /*
  * FOR LOOP END - GRAB NEW KEY
  -------------------------------------------*/
-		mov  esp, ebp
-		pop  ebp
+        add esp, 0x24
 	}
 
 EXIT_C_ENCRYPT_DATA:
@@ -382,8 +402,6 @@ void decryptData(char *data, int _length)
 		 * index2          = [ebp-0x04]
 		 *
 		 */
-		push ebp
-		mov  ebp, esp
 		sub  esp, 0x24
 
 		// data
@@ -485,29 +503,29 @@ NOT_INDEX2_FAILURE:
 
 NEXT_FOR_LOOP:
 		push ecx
+        // file[x] = file[x] ^ gKey[index2]
+        mov esi, gptrKey
+        mov edi, [ebp - 0x24]
+        mov al, byte ptr[edi + ecx]
+        mov bl, byte ptr[ebp - 0x04]
+        xor eax, ebx
+        mov [edi + ecx], al
 
-		// file[x] = file[x] ^ gKey[index1]
-		mov  esi, gptrKey
-		mov  edi, [ebp-0x24]
-		mov  al, byte ptr [edi+ecx]
-		mov  bl, byte ptr [esi+ebx-0x08]
-		xor  al, bl
-		mov  [edi+ecx], al
+        // index2 += hop_count2
+        mov  eax, [ebp - 0x04]
+        add  eax, [ebp - 0x0C]
+        mov [ebp - 0x04], eax
 
-		// index1 += hop_count1
-		mov  eax, [ebp-0x08]
-		add  eax, [ebp-0x10]
-		mov  [ebp-0x08], eax
+        // if(index2 >= 65537)
+        cmp [ebp - 0x04], 0x10001
+        jl ENCRYPT_BIT
 
-		// if(index >= 65537)
-		cmp  [ebp-0x08], 0x10001
-		jl   ENCRYPT_BIT
+            // index2 -= 65537
+ADJUST_INDEX2 :
+        mov  eax, [ebp - 0x04]
+        sub  eax, 0x10001
+        mov[ebp - 0x04], eax
 
-		// index1 -= 65537
-ADJUST_INDEX1:
-		mov  eax, [ebp-0x08]
-		sub  eax, 0x10001
-		mov  [ebp-0x08], eax
 //*
 ENCRYPT_BIT:
 		// do the encryption here
@@ -548,8 +566,31 @@ REV_EXIT:
 
 		pop  ecx
 
-		mov [edi+ecx], al
 
+
+		mov [edi+ecx], al
+        mov esi, gptrKey
+        mov edi, [ebp - 0x24]
+        mov al, byte ptr[edi + ecx]
+        mov bl, byte ptr[ebp - 0x08]
+        xor eax, ebx
+        mov[edi + ecx], al
+
+        // index1 += hop_count1
+        mov  eax, [ebp - 0x08]
+        add  eax, [ebp - 0x10]
+        mov  [ebp - 0x08], eax
+
+        // if(index >= 65537)
+        cmp [ebp - 0x08], 0x10001
+        jl   SKIP
+
+        // index1 -= 65537
+    ADJUST_INDEX1 :
+        mov  eax, [ebp - 0x08]
+        sub  eax, 0x10001
+        mov[ebp - 0x08], eax
+    SKIP:
 		inc  ecx
 		mov  eax, [ebp-0x20]
 		cmp  ecx, eax
@@ -568,9 +609,7 @@ REV_EXIT:
 
 
 		// Kill stackframe for asm
-		mov  esp, ebp
-		pop  ebp
-
+        add esp, 0x24
 
 	}
 
